@@ -1,0 +1,26 @@
+# .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Logs & exports
+Logs/
+Exports/
+*.log
+*.csv
+*.xlsx
+
+# WebDriver binaries
+chromedriver*
+msedgedriver*
+geckodriver*
+
+# Temp
+*.tmp
+*.crdownload
+
+# OS
+.DS_Store
+Thumbs.db
