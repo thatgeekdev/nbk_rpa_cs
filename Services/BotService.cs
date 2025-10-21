@@ -1,21 +1,15 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading;
 using OpenQA.Selenium;
-using NBK_RPA_CS.Config;
-using NBK_RPA_CS.Helpers;
-using NBK_RPA_CS.Services;
 using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
-using System.Threading;
-using System;
-using System.IO;
-using System.Linq;
 using System.Net.Http;
-using System.Collections.Generic;
+using NBK_RPA_CS.Services;
+using NBK_RPA_CS.Config;
+using NBK_RPA_CS.Processors;
+using NBK_RPA_CS.Helpers;
+
+
 
 namespace NBK_RPA_CS.Services
 {
@@ -23,8 +17,8 @@ namespace NBK_RPA_CS.Services
     {
         private readonly ConfigService _config;
         private readonly LoggerService _logger;
-        private readonly string _downloadDir;
         private readonly IWebDriver _driver;
+        private readonly string _downloadDir;
         private readonly FileProcessor _processor;
         private readonly ExportService _export;
 
@@ -35,8 +29,7 @@ namespace NBK_RPA_CS.Services
             _export = export;
 
             _downloadDir = Path.Combine(Path.GetTempPath(), "rpa_downloads");
-            if (!Directory.Exists(_downloadDir))
-                Directory.CreateDirectory(_downloadDir);
+            Directory.CreateDirectory(_downloadDir);
 
             _driver = WebDriverFactory.CreateChromeDriver(_downloadDir, headless: true);
             _processor = new FileProcessor(_logger);
@@ -46,56 +39,52 @@ namespace NBK_RPA_CS.Services
         {
             try
             {
-                _logger.Info($"Navigating to {_config.StartUrl}");
+                _logger.Info($"🌐 Acedendo a: {_config.StartUrl}");
                 _driver.Navigate().GoToUrl(_config.StartUrl);
 
-                // Pega todos os links de download na tabela
-                var downloadLinks = _driver.FindElements(By.CssSelector("table a[download]"))
-                                           .Where(a => !string.IsNullOrEmpty(a.GetAttribute("href")))
-                                           .ToList();
+                WaitHelper.TryHandleAlert(_driver, _logger);
 
-                _logger.Info($"Found {downloadLinks.Count} downloadable files.");
+                var links = _driver.FindElements(By.CssSelector("table a[download]"))
+                                   .Where(a => !string.IsNullOrEmpty(a.GetAttribute("href")))
+                                   .ToList();
 
-                foreach (var link in downloadLinks)
+                _logger.Info($"🔗 Encontrados {links.Count} ficheiros.");
+
+                foreach (var link in links)
                 {
+                    var url = link.GetAttribute("href");
+                    var name = link.GetAttribute("download") ?? Path.GetFileName(url);
+                    var path = Path.Combine(_downloadDir, name);
+
                     try
                     {
-                        var url = link.GetAttribute("href");
-                        var fileName = link.GetAttribute("download") ?? Path.GetFileName(url);
-                        var filePath = Path.Combine(_downloadDir, fileName);
-
-                        _logger.Info($"Downloading: {fileName}");
-
-                        // Baixa arquivo via HTTP
+                        _logger.Info($"⬇️ Downloading: {name}");
                         using (var client = new HttpClient())
                         {
                             var data = client.GetByteArrayAsync(url).Result;
-                            File.WriteAllBytes(filePath, data);
+                            File.WriteAllBytes(path, data);
                         }
 
-                        _logger.Info($"Downloaded file: {filePath}");
-
-                        // Processa o arquivo e extrai apenas os campos desejados
-                        List<Record> records = _processor.ProcessFile(filePath);
-                        if (records == null || !records.Any())
+                        var records = _processor.ProcessFile(path);
+                        if (records.Any())
                         {
-                            _logger.Warn($"No records extracted from {fileName}.");
-                            continue;
+                            var output = _export.ExportToCsv(records, Path.GetFileNameWithoutExtension(name) + "_clean.csv");
+                            _logger.Info($"📦 Exported: {output}");
                         }
-
-                        // Exporta CSV limpo
-                        var outPath = _export.ExportToCsv(records, Path.GetFileNameWithoutExtension(fileName) + ".csv");
-                        _logger.Info($"CSV exported: {outPath}");
+                        else
+                        {
+                            _logger.Warn($"Nenhum dado válido em {name}");
+                        }
                     }
                     catch (Exception ex)
                     {
-                        _logger.Error($"Error processing file {link.GetAttribute("download")}: {ex.Message}");
+                        _logger.Error($"Erro com {name}: {ex.Message}");
                     }
                 }
             }
             finally
             {
-                try { _driver.Quit(); } catch { }
+                _driver.Quit();
             }
         }
     }

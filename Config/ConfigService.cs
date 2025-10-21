@@ -8,7 +8,6 @@ namespace NBK_RPA_CS.Config
         public string StartUrl { get; private set; } = "https://rpa.xidondzo.com/";
         public string LogsPath { get; private set; } = Path.Combine("Logs", "log.txt");
         public string ExportsPath { get; private set; } = "Exports";
-        public int DownloadWaitSeconds { get; private set; } = 20;
 
         public ConfigService()
         {

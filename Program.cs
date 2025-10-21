@@ -1,6 +1,8 @@
-﻿using System;
-using NBK_RPA_CS.Config;
+﻿using NBK_RPA_CS.Config;
 using NBK_RPA_CS.Services;
+using System;
+using NBK_RPA_CS.Config;
+
 
 namespace NBK_RPA_CS
 {
@@ -9,15 +11,15 @@ namespace NBK_RPA_CS
         static void Main(string[] args)
         {
             var config = new ConfigService();
-            var logger = new LoggerService(); // <- usa default ou _config.LogsPath
+            var logger = new LoggerService(config.LogsPath);
             var export = new ExportService(config.ExportsPath);
 
-            logger.Info("RPA Automation starting.");
+            logger.Info("🚀 Iniciando automação RPA...");
 
             var bot = new BotService(config, logger, export);
             bot.Run();
 
-            logger.Info("RPA Automation finished.");
+            logger.Info("✅ Automação concluída!");
         }
     }
 }
