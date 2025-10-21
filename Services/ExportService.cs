@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -5,24 +6,32 @@ namespace NBK_RPA_CS.Services
 {
     public class ExportService
     {
-        private readonly string _exportsDir;
+        private readonly string _exportDir;
 
-        public ExportService(string exportsDir)
+        public ExportService(string exportDir)
         {
-            _exportsDir = exportsDir;
-            Directory.CreateDirectory(_exportsDir);
+            _exportDir = exportDir;
+            if (!Directory.Exists(_exportDir))
+                Directory.CreateDirectory(_exportDir);
         }
 
-        public string ExportNormalized(IEnumerable<Record> records)
+        public string ExportToCsv(List<Record> records, string fileName = "output.csv")
         {
-            var outPath = Path.Combine(_exportsDir, $"normalized_{System.DateTime.Now:yyyyMMddHHmmss}.csv");
-            using var writer = new StreamWriter(outPath);
-            writer.WriteLine("Name,Value");
-            foreach (var r in records)
+            var filePath = Path.Combine(_exportDir, fileName);
+
+            using (var writer = new StreamWriter(filePath))
             {
-                writer.WriteLine($"{r.Name},{r.Value}");
+                // Cabeçalho
+                writer.WriteLine("Nome,Email,Contacto,Estado Civil,Salário Líquido");
+
+                foreach (var record in records)
+                {
+                    // Escreve os valores separados por vírgula
+                    writer.WriteLine($"{record.Name},{record.Email},{record.Contact},{record.MaritalStatus},{record.Salary}");
+                }
             }
-            return outPath;
+
+            return filePath;
         }
     }
 }

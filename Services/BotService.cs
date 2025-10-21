@@ -4,7 +4,18 @@ using System.Linq;
 using System.Threading;
 using OpenQA.Selenium;
 using NBK_RPA_CS.Config;
-using NBK_RPA_CS.Processors;
+using NBK_RPA_CS.Helpers;
+using NBK_RPA_CS.Services;
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Threading;
+using System;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Collections.Generic;
 
 namespace NBK_RPA_CS.Services
 {
@@ -22,10 +33,12 @@ namespace NBK_RPA_CS.Services
             _config = config;
             _logger = logger;
             _export = export;
-            _downloadDir = Path.Combine(Path.GetTempPath(), "rpa_downloads");
-            Directory.CreateDirectory(_downloadDir);
 
-            _driver = WebDriverFactory.CreateChromeDriver(_downloadDir, headless: false);
+            _downloadDir = Path.Combine(Path.GetTempPath(), "rpa_downloads");
+            if (!Directory.Exists(_downloadDir))
+                Directory.CreateDirectory(_downloadDir);
+
+            _driver = WebDriverFactory.CreateChromeDriver(_downloadDir, headless: true);
             _processor = new FileProcessor(_logger);
         }
 
@@ -36,46 +49,47 @@ namespace NBK_RPA_CS.Services
                 _logger.Info($"Navigating to {_config.StartUrl}");
                 _driver.Navigate().GoToUrl(_config.StartUrl);
 
-                var links = _driver.FindElements(By.CssSelector("a[href]"))
-                    .Where(a => a.GetAttribute("href") != null &&
-                                (a.GetAttribute("href").EndsWith(".csv", StringComparison.OrdinalIgnoreCase) ||
-                                 a.GetAttribute("href").EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) ||
-                                 a.GetAttribute("href").EndsWith(".xls", StringComparison.OrdinalIgnoreCase) ||
-                                 a.GetAttribute("href").EndsWith(".json", StringComparison.OrdinalIgnoreCase)))
-                    .ToList();
+                // Pega todos os links de download na tabela
+                var downloadLinks = _driver.FindElements(By.CssSelector("table a[download]"))
+                                           .Where(a => !string.IsNullOrEmpty(a.GetAttribute("href")))
+                                           .ToList();
 
-                _logger.Info($"Found {links.Count} file links.");
+                _logger.Info($"Found {downloadLinks.Count} downloadable files.");
 
-                foreach (var link in links)
+                foreach (var link in downloadLinks)
                 {
                     try
                     {
                         var url = link.GetAttribute("href");
-                        _logger.Info($"Downloading {url}");
-                        try { link.Click(); } catch { _driver.Navigate().GoToUrl(url); }
+                        var fileName = link.GetAttribute("download") ?? Path.GetFileName(url);
+                        var filePath = Path.Combine(_downloadDir, fileName);
 
-                        var file = WaitForDownloadedFile(_downloadDir, TimeSpan.FromSeconds(_config.DownloadWaitSeconds));
-                        if (file == null)
+                        _logger.Info($"Downloading: {fileName}");
+
+                        // Baixa arquivo via HTTP
+                        using (var client = new HttpClient())
                         {
-                            _logger.Warn("Download not detected within timeout.");
+                            var data = client.GetByteArrayAsync(url).Result;
+                            File.WriteAllBytes(filePath, data);
+                        }
+
+                        _logger.Info($"Downloaded file: {filePath}");
+
+                        // Processa o arquivo e extrai apenas os campos desejados
+                        List<Record> records = _processor.ProcessFile(filePath);
+                        if (records == null || !records.Any())
+                        {
+                            _logger.Warn($"No records extracted from {fileName}.");
                             continue;
                         }
 
-                        _logger.Info($"Downloaded: {file}");
-
-                        var records = _processor.ProcessFile(file);
-                        if (!records.Any())
-                        {
-                            _logger.Warn("No valid records extracted from file.");
-                            continue;
-                        }
-
-                        var outPath = _export.ExportNormalized(records);
-                        _logger.Info($"Exported normalized CSV: {outPath}");
+                        // Exporta CSV limpo
+                        var outPath = _export.ExportToCsv(records, Path.GetFileNameWithoutExtension(fileName) + ".csv");
+                        _logger.Info($"CSV exported: {outPath}");
                     }
                     catch (Exception ex)
                     {
-                        _logger.Error("Error processing link: " + ex.Message);
+                        _logger.Error($"Error processing file {link.GetAttribute("download")}: {ex.Message}");
                     }
                 }
             }
@@ -83,20 +97,6 @@ namespace NBK_RPA_CS.Services
             {
                 try { _driver.Quit(); } catch { }
             }
-        }
-
-        private string? WaitForDownloadedFile(string dir, TimeSpan timeout)
-        {
-            var stop = DateTime.UtcNow + timeout;
-            while (DateTime.UtcNow < stop)
-            {
-                var files = Directory.GetFiles(dir)
-                    .Where(f => !f.EndsWith(".crdownload") && !f.EndsWith(".tmp"))
-                    .ToList();
-                if (files.Any()) return files.OrderByDescending(File.GetLastWriteTimeUtc).First();
-                Thread.Sleep(500);
-            }
-            return null;
         }
     }
 }
