@@ -12,7 +12,7 @@ namespace NBK_RPA_CS.Processors
     {
         private readonly LoggerService _logger;
         private static readonly string[] RequiredFields =
-            { "Nome", "Email", "Contacto", "Estado Civil", "Salário", "Salário Líquido" };
+            { "Nome", "Email", "Contacto", "Estado Civil", "Salário", "Salário Líquido", "Período"};
 
         public FileProcessor(LoggerService logger)
         {
@@ -58,19 +58,21 @@ namespace NBK_RPA_CS.Processors
             var lines = File.ReadAllLines(path);
             var list = new List<Record>();
             Record? current = null;
+            RecordMonth? currentMonth = null;
 
             foreach (var line in lines)
             {
                 if (line.StartsWith("--- Registro:"))
                 {
-                    // Novo registro: adiciona o anterior à lista
-                    if (current != null && !string.IsNullOrWhiteSpace(current.Name))
+                    if (current != null)
                         list.Add(current);
 
                     current = new Record();
                 }
+
                 else if (current != null)
                 {
+                    // Dados pessoais
                     if (line.StartsWith("Nome:"))
                         current.Name = line.Substring("Nome:".Length).Trim();
                     else if (line.StartsWith("E-mail:"))
@@ -78,7 +80,7 @@ namespace NBK_RPA_CS.Processors
                     else if (line.StartsWith("Contacto / Tel:"))
                         current.Contact = line.Substring("Contacto / Tel:".Length).Trim();
                     else if (line.StartsWith("Estado Civil:"))
-                        current.MaritalStatus = line.Substring("Estado Civil:".Length).Trim();
+                        current.MaritalStatus = line.Substring("Período:".Length).Trim();
                     else if (line.StartsWith("Salário Líquido:"))
                     {
                         var valueStr = line.Substring("Salário Líquido:".Length).Trim()
@@ -86,11 +88,32 @@ namespace NBK_RPA_CS.Processors
                         if (decimal.TryParse(valueStr, out var val))
                             current.NetSalary = val;
                     }
+                        else if (line.StartsWith("Período:"))
+                            current.Periodo = line.Substring("Período:".Length).Trim();
+                        else if (line.StartsWith("Vencimentos Brutos:"))
+                            current.VencimentosBrutos = line.Substring("Vencimentos Brutos:".Length).Trim();
+                        else if (line.StartsWith("Bónus:"))
+                            current.Bonus = line.Substring("Bónus:".Length).Trim();
+                        else if (line.StartsWith("Seguros:"))
+                            current.Seguros = line.Substring("Seguros:".Length).Trim();
+                        else if (line.StartsWith("OUTROS:"))
+                            current.Outros = line.Substring("OUTROS:".Length).Trim();
+                        else if (line.StartsWith("Pagamento via:"))
+                            current.PaymentMethod = line.Substring("Pagamento via:".Length).Trim();
+                        else if (line.StartsWith("Referência recibo:"))
+                            current.ReceiptReference = line.Substring("Referência recibo:".Length).Trim();
+                        else if (line.StartsWith("Assinatura gestor:"))
+                            current.ManagerSignature = line.Substring("Assinatura gestor:".Length).Trim();
+                        else if (line.StartsWith("Data:"))
+                        {
+                            var dateStr = line.Substring("Data:".Length).Trim();
+                            if (DateTime.TryParse(dateStr, out var dt))
+                                current.Date = dt;
+                        }
                 }
             }
 
-            // Adiciona o último registro
-            if (current != null && !string.IsNullOrWhiteSpace(current.Name))
+            if (current != null)
                 list.Add(current);
 
             return list;

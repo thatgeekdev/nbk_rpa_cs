@@ -21,6 +21,7 @@ namespace NBK_RPA_CS.Services
         private readonly string _downloadDir;
         private readonly FileProcessor _processor;
         private readonly ExportService _export;
+        private readonly ExcelBalanceteService _excelService;
 
         public BotService(ConfigService config, LoggerService logger, ExportService export)
         {
@@ -33,10 +34,12 @@ namespace NBK_RPA_CS.Services
 
             _driver = WebDriverFactory.CreateChromeDriver(_downloadDir, headless: false);
             _processor = new FileProcessor(_logger);
+            _excelService = new ExcelBalanceteService("Exports");
         }
 
         public void Run()
         {
+            var allRecords = new List<Record>();
             try
             {
                 _logger.Info($"🌐 Acedendo a: {_config.StartUrl}");
@@ -70,6 +73,8 @@ namespace NBK_RPA_CS.Services
                         {
                             var output = _export.ExportToCsv(records, Path.GetFileNameWithoutExtension(name) + "_clean.csv");
                             _logger.Info($"📦 Exported: {output}");
+                            // Acumula para o Balancete final
+                            allRecords.AddRange(records);
                         }
                         else
                         {
@@ -79,8 +84,32 @@ namespace NBK_RPA_CS.Services
                     catch (Exception ex)
                     {
                         _logger.Error($"Erro com {name}: {ex.Message}");
+
                     }
                 }
+                     if (allRecords.Any())
+    {
+        // Converte
+        var allRecordsTxt = allRecords.Select(r => r.ToRecordTxt(
+            periodo: r.Periodo,          // você pode adaptar conforme extração
+            vencimentosBrutos: r.VencimentosBrutos,
+            bonus: r.Bonus,
+            seguros: r.Seguros,
+            outros: r.Outros,
+            paymentMethod: r.PaymentMethod,
+            receiptReference: r.ReceiptReference,
+            managerSignature: r.ManagerSignature,
+            date: r.Date
+        )).ToList();
+
+        var balancetePath = _excelService.Generate(allRecordsTxt);
+        _logger.Info($"📊 Balancete final gerado: {balancetePath}");
+    }
+
+                    else
+                    {
+                        _logger.Warn("Nenhum registro válido encontrado. Balancete final não gerado.");
+                    }
             }
             finally
             {
