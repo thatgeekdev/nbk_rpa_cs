@@ -5,30 +5,30 @@ namespace NBK_RPA_CS.Services
 {
     public class LoggerService
     {
-        private readonly string _logPath;
+        private readonly string _logDir;
+        private readonly string _logFile;
 
-        public LoggerService(string logPath = null!)
+        public LoggerService(string logDir = "Logs")
         {
-            _logPath = logPath ?? Path.Combine("Logs", "log.txt");
-            var dir = Path.GetDirectoryName(_logPath);
-            if (!string.IsNullOrEmpty(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
+            // Cria a pasta Logs (se não existir)
+            _logDir = logDir;
+            Directory.CreateDirectory(_logDir);
+
+            // Cria o ficheiro único com timestamp
+            _logFile = Path.Combine(_logDir, $"log_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
         }
 
-        public void Info(string message) => Log("INFO", message);
-        public void Warn(string message) => Log("WARN", message);
-        public void Error(string message) => Log("ERROR", message);
+        public void Info(string message) => WriteLog("INFO", message);
+        public void Warn(string message) => WriteLog("WARN", message);
+        public void Error(string message) => WriteLog("ERROR", message);
 
-        private void Log(string level, string message)
+        private void WriteLog(string level, string message)
         {
-            var text = $"[{level}] {DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}";
-            Console.WriteLine(text);
-            if (!string.IsNullOrEmpty(_logPath))
-            {
-                File.AppendAllText(_logPath, text + "\n");
-            }
+            var logMessage = $"[{level}] {DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}";
+            Console.WriteLine(logMessage);
+
+            // Guarda no ficheiro também
+            File.AppendAllText(_logFile, logMessage + Environment.NewLine);
         }
     }
 }

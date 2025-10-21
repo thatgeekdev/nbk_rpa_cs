@@ -6,12 +6,13 @@ namespace NBK_RPA_CS.Config
     public class ConfigService
     {
         public string StartUrl { get; private set; } = "https://rpa.xidondzo.com/";
-        public string LogsPath { get; private set; } = Path.Combine("Logs", "log.txt");
+        public string LogsDir { get; private set; } = "Logs";
         public string ExportsPath { get; private set; } = "Exports";
 
         public ConfigService()
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(LogsPath) ?? "Logs");
+            // Garante que as pastas existem
+            Directory.CreateDirectory(LogsDir);
             Directory.CreateDirectory(ExportsPath);
         }
     }
