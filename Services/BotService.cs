@@ -31,7 +31,7 @@ namespace NBK_RPA_CS.Services
             _downloadDir = Path.Combine(Path.GetTempPath(), "rpa_downloads");
             Directory.CreateDirectory(_downloadDir);
 
-            _driver = WebDriverFactory.CreateChromeDriver(_downloadDir, headless: true);
+            _driver = WebDriverFactory.CreateChromeDriver(_downloadDir, headless: false);
             _processor = new FileProcessor(_logger);
         }
 
