@@ -10,7 +10,7 @@ namespace NBK_RPA_CS
         public string Contact { get; set; } = "";
         public string MaritalStatus { get; set; } = "";
         public string Salary { get; set; } = "";
-
+        public decimal NetSalary { get; set; } = 0m; 
         public static Record? FromArray(string[] cols, Dictionary<string, int> indexes)
         {
             string SafeGet(string key) => indexes.ContainsKey(key) && indexes[key] < cols.Length ? cols[indexes[key]] : "";
@@ -47,6 +47,18 @@ namespace NBK_RPA_CS
                 Contact = Get("Contacto"),
                 MaritalStatus = Get("Estado Civil"),
                 Salary = Get("Salário") != "" ? Get("Salário") : Get("Salário Líquido")
+            };
+        }
+        public static Record FromTxt(string nome, string email, string contacto, string estadoCivil, decimal netSalary)
+        {
+            return new Record
+            {
+                Name = nome,
+                Email = email,
+                Contact = contacto,
+                MaritalStatus = estadoCivil,
+                Salary = netSalary.ToString("N2"),
+                NetSalary = netSalary
             };
         }
     }

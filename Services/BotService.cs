@@ -54,7 +54,7 @@ namespace NBK_RPA_CS.Services
                 {
                     var url = link.GetAttribute("href");
                     var name = link.GetAttribute("download") ?? Path.GetFileName(url);
-                    var path = Path.Combine(_downloadDir, name);
+                    var path = Path.Combine(_downloadDir, name ?? string.Empty);
 
                     try
                     {
